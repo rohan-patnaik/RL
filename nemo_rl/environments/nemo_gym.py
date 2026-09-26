@@ -1474,13 +1474,14 @@ Depending on your data shape, you may want to change these values."""
         checkpoint_dir: str,
         components: Optional[list[GymComponent]] = None,
         continuation_indexes: Optional[list[dict[str, Any]]] = None,
+        generation_cut_indexes: Optional[list[dict[str, Any]]] = None,
     ) -> dict[str, Any]:
         """Commit selected stateful participants into a caller-owned directory.
 
-        ``components`` and ``continuation_indexes`` let a controller coordinate
-        several Gym actors: local agents commit first, then one shared model
-        commit receives the union of their continuation indexes. The default
-        preserves the original single-actor transaction.
+        ``components`` and the supplied artifact indexes let a controller
+        coordinate several Gym actors: local agents and peer cut fragments
+        commit first, then one shared model commit receives their union. The
+        default preserves the original single-actor transaction.
         """
         common_request = GymCheckpointDirectoryRequest(
             checkpoint_id=checkpoint_id,
@@ -1491,6 +1492,10 @@ Depending on your data shape, you may want to change these values."""
         validated_continuation_indexes = [
             GymCheckpointArtifactReference.model_validate(item)
             for item in continuation_indexes or []
+        ]
+        validated_generation_cut_indexes = [
+            GymCheckpointArtifactReference.model_validate(item)
+            for item in generation_cut_indexes or []
         ]
         selected_components = _validated_checkpoint_components(components)
         for discovered in self._ordered_checkpoint_participants(
@@ -1518,6 +1523,7 @@ Depending on your data shape, you may want to change these values."""
                     deadline_ts=deadline_ts,
                     checkpoint_dir=checkpoint_dir,
                     continuation_indexes=validated_continuation_indexes,
+                    generation_cut_indexes=validated_generation_cut_indexes,
                 ).model_dump(mode="json")
                 payload = GymModelCommitResponse.model_validate(
                     await self._control(
